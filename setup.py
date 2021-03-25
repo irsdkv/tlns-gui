@@ -13,7 +13,6 @@ setup(
     description = ("tlns_gui"),
     license = "MIT",
     keywords = "tlns",
-    packages=['tlns_gui'],
     scripts=['scripts/tlns_gui.py'],
     package_data={'drone_planner': ['data']},
     install_requires=[
