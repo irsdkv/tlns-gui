@@ -1,9 +1,242 @@
-import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 import random
 import math
+import asyncio
+from PyQt5.QtWidgets import QApplication
+from asyncqt import QEventLoop
+import qtawesome
+import sys
+import glob
+import time
+import copy
+import threading
+from itertools import count
+
+from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QMessageBox, \
+    QComboBox, QDialog, QLabel
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
+from logging import getLogger
+from collections import OrderedDict
+
+logger = getLogger(__name__)
+RUNNING_ON_LINUX = 'linux' in sys.platform.lower()
+
+
+def _linux_parse_proc_net_dev(out_ifaces):
+    with open('/proc/net/dev') as f:
+        for line in f:
+            if ':' in line:
+                name = line.split(':')[0].strip()
+                out_ifaces.insert(0 if 'can' in name else len(out_ifaces), name)
+    return out_ifaces
+
+
+def _linux_parse_ip_link_show(out_ifaces):
+    import re
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryFile() as f:
+        proc = subprocess.Popen('ip link show', shell=True, stdout=f)
+        if 0 != proc.wait(10):
+            raise RuntimeError('Process failed')
+        f.seek(0)
+        out = f.read().decode()
+
+    return re.findall(r'\d+?: ([a-z0-9]+?): <[^>]*UP[^>]*>.*\n *link/can', out) + out_ifaces
+
+
+def list_ifaces(linux_path, key):
+    """Returns dictionary, where key is description, value is the OS assigned name of the port
+    linux_path example:
+        '/dev/serial/by-id/*'
+    Key example:
+        lambda s: not ('zubax' in s.lower() and 'babel' in s.lower())"""
+    logger.debug('Updating iface list...')
+    if RUNNING_ON_LINUX:
+        # Linux system
+        ifaces = glob.glob(linux_path)
+        try:
+            ifaces = list(sorted(ifaces, key=key))
+        except Exception:
+            logger.warning('Sorting failed', exc_info=True)
+
+        # noinspection PyBroadException
+        try:
+            ifaces = _linux_parse_ip_link_show(ifaces)       # Primary
+        except Exception as ex:
+            logger.warning('Could not parse "ip link show": %s', ex, exc_info=True)
+            ifaces = _linux_parse_proc_net_dev(ifaces)       # Fallback
+
+        out = OrderedDict()
+        for x in ifaces:
+            out[x] = x
+
+        return out
+    else:
+        # Windows, Mac, whatever
+        from PyQt5 import QtSerialPort
+
+        out = OrderedDict()
+        for port in QtSerialPort.QSerialPortInfo.availablePorts():
+            out[port.description()] = port.systemLocation()
+
+        return out
+
+
+class BackgroundIfaceListUpdater:
+    UPDATE_INTERVAL = 0.5
+
+    def __init__(self, linux_path, key):
+        self.linux_path = linux_path
+        self.key = key
+        self._ifaces = list_ifaces(linux_path, key)
+        self._thread = threading.Thread(target=self._run, name='iface_lister', daemon=True)
+        self._keep_going = True
+        self._lock = threading.Lock()
+
+    def __enter__(self):
+        logger.debug('Starting iface list updater')
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_):
+        logger.debug('Stopping iface list updater...')
+        self._keep_going = False
+        self._thread.join()
+        logger.debug('Stopped iface list updater')
+
+    def _run(self):
+        while self._keep_going:
+            time.sleep(self.UPDATE_INTERVAL)
+            new_list = list_ifaces(self.linux_path, self.key)
+            with self._lock:
+                self._ifaces = new_list
+
+    def get_list(self):
+        with self._lock:
+            return copy.copy(self._ifaces)
+
+
+def get_monospace_font():
+    preferred = ['Consolas', 'DejaVu Sans Mono', 'Monospace', 'Lucida Console', 'Monaco']
+    for name in preferred:
+        font = QFont(name)
+        if QFontInfo(font).fixedPitch():
+            return font
+
+    font = QFont()
+    font.setStyleHint(QFont().Monospace)
+    font.setFamily('monospace')
+    return font
+
+
+def get_icon(name):
+    return qtawesome.icon('fa.' + name)
+
+
+def show_error(title, text, informative_text, parent=None, blocking=False):
+    mbox = QMessageBox(parent)
+
+    mbox.setWindowTitle(str(title))
+    mbox.setText(str(text))
+    if informative_text:
+        mbox.setInformativeText(str(informative_text))
+
+    mbox.setIcon(QMessageBox.Critical)
+    mbox.setStandardButtons(QMessageBox.Ok)
+    mbox.setMinimumWidth(1000)
+    mbox.setMinimumHeight(800)
+
+    if blocking:
+        mbox.exec()
+    else:
+        mbox.show()     # Not exec() because we don't want it to block!
+
+
+def run_setup_window():
+
+    dialog = QDialog()
+
+    icon = get_icon("plane")
+
+    dialog.setWindowTitle('Interface Setup')
+    dialog.setWindowIcon(icon)
+    dialog.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+    dialog.setAttribute(Qt.WA_DeleteOnClose)              # This is required to stop background timers!
+    ifaces = None
+
+    combo = QComboBox(dialog)
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.NoInsert)
+    combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+    combo.setFont(get_monospace_font())
+
+    result = None
+
+    def on_ok():
+        nonlocal result
+        result_key = str(combo.currentText()).strip()
+        if not result_key:
+            show_error('Invalid parameters', 'Interface name cannot be empty', 'Please select a valid interface',
+                       parent=dialog)
+            return
+        try:
+            result = ifaces[result_key]
+        except KeyError:
+            result = result_key
+        dialog.close()
+
+
+    ok_button = QPushButton("Connect")
+    ok_button.clicked.connect(on_ok)
+
+    layout = QVBoxLayout()
+
+    layout.addWidget(QLabel("Select interface:"))
+    layout.addWidget(combo)
+
+    layout.addWidget(ok_button)
+
+    dialog.setLayout(layout)
+
+    def update_iface_list():
+        nonlocal ifaces
+        ifaces = iface_lister.get_list()
+        known_keys = set()
+        remove_indices = []
+        was_empty = combo.count() == 0
+        # Marking known and scheduling for removal
+        for idx in count():
+            tx = combo.itemText(idx)
+            if not tx:
+                break
+            known_keys.add(tx)
+            if tx not in ifaces:
+                remove_indices.append(idx)
+        # Removing - starting from the last item in order to retain indexes
+        for idx in remove_indices[::-1]:
+            combo.removeItem(idx)
+        # Adding new items - starting from the last item in order to retain the final order
+        for key in list(ifaces.keys())[::-1]:
+            if key not in known_keys:
+                combo.insertItem(0, key)
+
+        # Updating selection
+        if was_empty:
+            combo.setCurrentIndex(0)
+
+    with BackgroundIfaceListUpdater('/dev/tty*', lambda s: not ('px4_fmu' in s.lower())) as iface_lister:
+        update_iface_list()
+        timer = QTimer(dialog)
+        timer.setSingleShot(False)
+        timer.timeout.connect(update_iface_list)
+        timer.start(int(BackgroundIfaceListUpdater.UPDATE_INTERVAL / 2 * 1000))
+        dialog.exec()
+
+
+    return result
 
 
 class Point:
@@ -234,7 +467,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update()
 
 
-app = QtWidgets.QApplication(sys.argv)
-window = MainWindow()
-window.show()
-app.exec_()
+def main():
+    app = QApplication(sys.argv)
+    loop = QEventLoop(app)
+
+    font = QFont("Courier New", 7)
+
+    app.setFont(font)
+
+    asyncio.set_event_loop(loop)  # NEW must set the event loop
+    while True:
+        # Asking the user to specify which interface to work with
+        try:
+            iface = run_setup_window()
+            if not iface:
+                sys.exit(0)
+        except Exception as ex:
+            show_error('Fatal error', 'Could not list available interfaces', ex, blocking=True)
+            sys.exit(1)
+
+        break
+
+    print("iface: " + iface)
+    window = MainWindow()
+    window.show()
+    app.exec_()
+
+if __name__ == '__main__':
+    main()

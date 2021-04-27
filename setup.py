@@ -16,7 +16,9 @@ setup(
     scripts=['scripts/tlns_gui.py'],
     package_data={'drone_planner': ['data']},
     install_requires=[
-        'PyQt5==5.15.4'
+        'PyQt5==5.15.4',
+        'QtAwesome==0.5.8',
+        'asyncqt==0.7.0'
     ],
     long_description=read('README.md'),
     classifiers=[
