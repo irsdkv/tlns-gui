@@ -1,0 +1,8 @@
+[BOARD.figure.rect_1]
+type = "rect"
+center.x = 2
+center.y = 3
+widht = 16
+height = 10
+thickness = 2
+filled = true
