@@ -6,6 +6,9 @@ from asyncqt import QEventLoop
 import qtawesome
 import sys
 from itertools import count
+import tinyproto
+from tlns.tlns import Board, PIXEL_MAX_BRIGHTNESS
+import serial
 
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QMessageBox, \
     QComboBox, QDialog, QLabel
@@ -19,6 +22,8 @@ WINDOW_MUL_COEF = 20
 WINDOW_WIDTH = Board.WIDTH * WINDOW_MUL_COEF
 WINDOW_HEIGHT = Board.HEIGHT * WINDOW_MUL_COEF
 
+BRIGHTNESS_ARROW = 0x80
+BRIGHTNESS_TARGET = PIXEL_MAX_BRIGHTNESS
 
 def get_monospace_font():
     preferred = ['Consolas', 'DejaVu Sans Mono', 'Monospace', 'Lucida Console', 'Monaco']
@@ -181,7 +186,7 @@ def get_random_target_point(point_: Point = None) -> Point:
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, iface):
         super().__init__()
 
         self.label = QtWidgets.QLabel()
@@ -195,6 +200,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.line = []
         self.path_rects = []
         self.shots = []
+        self.board = Board()
+        self.p = tinyproto.Hdlc()
+        self.p.begin()
+        self.ser = serial.Serial(iface, baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5)
+        self.update_board_target(None, self.target_pos)
+        self.write_board_to_uart()
 
     def draw_target(self, color=Qt.white, point:Point=None):
         print("target_pos: ", str(self.target_pos.x) + ", " + str(self.target_pos.y))
@@ -252,7 +263,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.redraw_shots()
         self.draw_target()
         if rect_pos not in self.path_rects:
+            #for old_rect in self.path_rects:
+            #    self.board.set(int(old_rect.x/WINDOW_MUL_COEF), int(old_rect.y/WINDOW_MUL_COEF), 0)
+            self.board.set(int(rect_pos.x/WINDOW_MUL_COEF), int(rect_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_ARROW)
+            self.write_board_to_uart()
             self.path_rects.append(rect_pos)
+
+        self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
+
+    def write_board_to_uart(self):
+        self.p.put(bytearray(bytearray(self.board.__bytes__())))
+        print(str(self.board))
+        #result = self.p.tx()
+        #self.ser.write(result)
 
     def redraw_path(self):
         self.redraw_path_rects()
@@ -265,10 +288,29 @@ class MainWindow(QtWidgets.QMainWindow):
         hit_y = (compare_pos.y - WINDOW_MUL_COEF/2) < point.y < (compare_pos.y + WINDOW_MUL_COEF/2)
         return hit_x and hit_y
 
+    def update_board_target(self, old_pos, new_pos):
+        def big_point(point, val):
+            self.board.set(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF), val)
+            return
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF) - 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF) + 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF) - 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF) + 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF) - 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF) + 1, val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF), val)
+            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF), val)
+        if old_pos:
+            big_point(old_pos, 0)
+        big_point(new_pos, BRIGHTNESS_TARGET)
+
     def redraw_target(self):
+        old_pos = copy.copy(self.target_pos)
+        self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), 0)
         self.draw_target(Qt.black)
         self.target_pos = get_random_target_point(self.target_pos)
         self.draw_target()
+        self.update_board_target(old_pos, self.target_pos)
 
     def redraw_shots(self):
         for point, target_pos in self.shots:
@@ -301,6 +343,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.line = []
         self.path_rects = []
         self.shots = []
+        self.board = Board()
 
     def mouseMoveEvent(self, e):
         point = Point(e.x(), e.y())
@@ -322,6 +365,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.clear_all()
                 self.redraw_line()
                 self.redraw_target()
+                self.write_board_to_uart()
             else:
                 self.redraw_path()
         elif e.buttons() == QtCore.Qt.RightButton:
@@ -352,7 +396,7 @@ def main():
         break
 
     print("iface: " + iface)
-    window = MainWindow()
+    window = MainWindow(iface)
     window.show()
     app.exec_()
 

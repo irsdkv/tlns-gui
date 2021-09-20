@@ -11,6 +11,7 @@ from bitarray import bitarray
 logger = getLogger(__name__)
 RUNNING_ON_LINUX = 'linux' in sys.platform.lower()
 
+PIXEL_MAX_BRIGHTNESS = 255
 
 class Point:
     def __init__(self, x_=0, y_=0):
@@ -38,20 +39,30 @@ class Board():
         for _ in range(self.h):
             row = []
             for _ in range(self.w):
-                row.append(False)
+                row.append(0)
             self.pix.append(row)
 
-    def set(self, x, y, val=True):
+    def set(self, x, y, val=PIXEL_MAX_BRIGHTNESS):
         assert x < self.w
         assert y < self.h
         self.pix[x][y] = val
 
+    def set_quietly(self, x, y, val=PIXEL_MAX_BRIGHTNESS):
+        if x >= self.w or y >= self.h:
+            return
+        self.pix[x][y] = val
+
     def unset(self,  x, y):
-        self.set(x, y, False)
+        self.set(x, y, 0)
 
     def get(self, x, y):
         assert x < self.w
         assert y < self.h
+        return self.pix[y][x]
+
+    def get_quietly(self, x, y):
+        if x >= self.w or y >= self.h:
+            return 0
         return self.pix[y][x]
 
     @staticmethod
@@ -66,7 +77,13 @@ class Board():
         for x in reversed(range(self.w)):
             string = string + str(x) + ':\t'
             for y in range(self.h):
-                c = '+' if self.get(x, y) else '0'
+                brightness = self.get(x, y)
+                if brightness == 0:
+                    c = '-'
+                elif brightness <= 0x80:
+                     c = '+'
+                else:
+                    c = '8'
                 string = string + c
             string = string + '\n'
         return string
@@ -78,8 +95,7 @@ class Board():
             for y in range(self.h):
                 pixels.append(self.get(x, y))
 
-        barray = bitarray(pixels)
-        return barray.tobytes()
+        return bytearray(pixels)
 
 
 
