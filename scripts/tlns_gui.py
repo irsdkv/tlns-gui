@@ -274,8 +274,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def write_board_to_uart(self):
         self.p.put(bytearray(bytearray(self.board.__bytes__())))
         print(str(self.board))
-        #result = self.p.tx()
-        #self.ser.write(result)
+        result = self.p.tx()
+        self.ser.write(result)
 
     def redraw_path(self):
         self.redraw_path_rects()
