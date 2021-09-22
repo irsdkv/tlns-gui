@@ -78,9 +78,9 @@ def main():
     for figure in figures:
         render(board, figure)
 
-    print(board)
     board_bytes = board.__bytes__()
     print("Hex: " + ''.join(board_bytes.hex()))
+    print(board)
 
     p = tinyproto.Hdlc()
 

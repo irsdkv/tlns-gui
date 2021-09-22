@@ -203,8 +203,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.board = Board()
         self.p = tinyproto.Hdlc()
         self.p.begin()
-        self.ser = serial.Serial(iface, baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5)
         self.update_board_target(None, self.target_pos)
+        self.iface = iface
         self.write_board_to_uart()
 
     def draw_target(self, color=Qt.white, point:Point=None):
@@ -272,10 +272,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
 
     def write_board_to_uart(self):
-        self.p.put(bytearray(bytearray(self.board.__bytes__())))
+        self.p.put(self.board.__bytes__())
         print(str(self.board))
         result = self.p.tx()
-        self.ser.write(result)
+        with serial.Serial(self.iface, 115200, bytesize=8, parity='N', stopbits=1, timeout=None) as ser:
+            ser.write(result)
 
     def redraw_path(self):
         self.redraw_path_rects()
