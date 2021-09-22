@@ -17,7 +17,6 @@ setup(
              'scripts/tlns_serial_testing.py'],
     package_data={'drone_planner': ['data']},
     install_requires=[
-        'PyQt5==5.15.4',
         'QtAwesome==0.5.8',
         'asyncqt==0.7.0',
         'toml==0.10.2',
