@@ -11,7 +11,7 @@ from bitarray import bitarray
 logger = getLogger(__name__)
 RUNNING_ON_LINUX = 'linux' in sys.platform.lower()
 
-PIXEL_MAX_BRIGHTNESS = 255
+PIXEL_MAX_BRIGHTNESS = 1
 
 class Point:
     def __init__(self, x_=0, y_=0):
