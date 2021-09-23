@@ -91,7 +91,7 @@ class Board():
     def __bytes__(self):
         bytes_ = b''
         pixels = []
-        for x in range(self.w - 1, -1, -1):
+        for x in range(self.w):
             for y in range(self.h):
                 pixels.append(self.get(y, x))
 
