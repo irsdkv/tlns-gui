@@ -11,7 +11,8 @@ from bitarray import bitarray
 logger = getLogger(__name__)
 RUNNING_ON_LINUX = 'linux' in sys.platform.lower()
 
-PIXEL_MAX_BRIGHTNESS = 1
+PIXEL_MAX_BRIGHTNESS = 0xFF
+PIXEL_HALF_BRIGHTNESS = 0x80
 
 class Point:
     def __init__(self, x_=0, y_=0):
@@ -83,7 +84,7 @@ class Board():
                 elif brightness <= 0x80:
                      c = '+'
                 else:
-                    c = '8'
+                    c = 'o'
                 string = string + c
             string = string + '\n'
         return string

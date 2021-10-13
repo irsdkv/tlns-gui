@@ -21,7 +21,8 @@ setup(
         'asyncqt==0.7.0',
         'toml==0.10.2',
         'bitarray==2.1.0',
-        'pyserial==3.5'
+        'pyserial==3.5',
+        'dearpygui==0.8.64'
     ],
     long_description=read('README.md'),
     classifiers=[
