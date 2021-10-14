@@ -98,6 +98,20 @@ class Board():
 
         return bytearray(pixels)
 
+    def tobytes(self, inverse = False):
+        bytes_ = b''
+        pixels = []
+        for x in range(self.w):
+            for y in range(self.h):
+                if not inverse:
+                    pixels.append(self.get(y, x))
+                else:
+                    pixels.append(self.get(x, y))
+
+
+
+        return bytearray(pixels)
+
 
 
 
