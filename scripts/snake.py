@@ -63,6 +63,7 @@ BOARD_HEIGHT = 21
 BOARD_WIDTH = 21
 board = Board()
 serial_iface = None
+manual = False
 
 
 def write_board_to_uart(board):
@@ -126,112 +127,114 @@ def move_snakeDispatcher():
     move_snake_thread = threading.Thread(name="move snake", target=move_snake, args=(), daemon=True)
     move_snake_thread.start()
 
+def step():
+    global slither_data, slither_change_data, snake, snake_moving_flag, apple_points, snake_speed, snake_color, \
+        snake_length_flag, score, score_count, highest_score, highest_score_count, manual
+    snake_moving_flag = 1
+    body_points = get_points_from_data(slither_data)
+    body_points.pop(0)  # List of all points of the snake except the head
+
+    board_local = Board()
+    for body_point in body_points:
+        board_local.set_quietly(body_point[0], body_point[1], PIXEL_HALF_BRIGHTNESS)
+    for apple_point in apple_points:
+        board_local.set_quietly(apple_point[0], apple_point[1], PIXEL_MAX_BRIGHTNESS)
+
+    write_board_to_uart(board_local)
+
+    if slither_data[0][0][1] == BOARD_WIDTH or slither_data[0][0][0] == BOARD_HEIGHT or \
+            slither_data[0][0][1] == 0 or slither_data[0][0][0] == 0 or \
+            slither_data[0][0] in body_points:  # Check if the snake touches the walls or itself
+
+        for i in range(2):
+            dpg.configure_item(item=snake, color=[255, 0, 0])
+            time.sleep(0.15)
+            dpg.configure_item(item=snake, color=dpg.get_value(item=snake_color))
+            time.sleep(0.15)
+
+        dpg.configure_item(item=snake, color=[255, 0, 0, 255])
+
+        snake_moving_flag = 0
+        return -1
+
+    if slither_data[0][0] in apple_points:
+        # If the head of the snake passes through any of the apple coordinates, then the apple changes location
+        # and the snake's tail gets longer
+        apple_points = []
+        place_apple()
+
+        score_count += 1
+        dpg.set_value(item=score, value=score_count)
+
+        if score_count > highest_score_count:
+            highest_score_count = score_count
+            dpg.set_value(item=score, value=score_count)
+            dpg.set_value(item=highest_score, value=highest_score_count)
+
+        if snake_length_flag == 1:  # Only if user wants to grow the snake
+            add_length = 3  # Add additional 3 points to the tail
+            tail_direction = slither_data[-1][1]  # Direction the tail is moving in
+            tail_point = slither_data[-1][0][:]
+
+            if tail_direction == 1:
+                for n in range(add_length):
+                    new_tail_point = [tail_point[0] + n + 1, tail_point[1]]
+                    slither_data.append([new_tail_point, tail_direction])
+
+            elif tail_direction == 2:
+                for n in range(add_length):
+                    new_tail_point = [tail_point[0], tail_point[1] - 1 - n]
+                    slither_data.append([new_tail_point, tail_direction])
+
+            elif tail_direction == 3:
+                for n in range(add_length):
+                    new_tail_point = [tail_point[0] - 1 - n, tail_point[1]]
+                    slither_data.append([new_tail_point, tail_direction])
+
+            else:
+                for n in range(add_length):
+                    new_tail_point = [tail_point[0], tail_point[1] + 1 + n]
+                    slither_data.append([new_tail_point, tail_direction])
+
+    else:
+        for index in range(len(slither_data)):
+            # This loop controls the continuous motion of the snake
+            if slither_data[index][1] == 1:
+                # Move West. Subtract X
+                slither_data[index][0][0] -= 1
+
+            elif slither_data[index][1] == 2:
+                # Move North. Add Y
+                slither_data[index][0][1] += 1
+
+            elif slither_data[index][1] == 3:
+                # Move East. Add X
+                slither_data[index][0][0] += 1
+
+            elif slither_data[index][1] == 4:
+                # Move South. Subtract Y
+                slither_data[index][0][1] -= 1
+
+            if slither_data[index][0] in get_points_from_data(slither_change_data):
+                # If the point of the snake is found in the list of direction of changes, then get the direction
+                # of that point gets updated
+                slither_data[index][1] = get_direction_from_data(slither_data[index][0], slither_change_data)
+
+        for index in range(len(slither_change_data)):
+            if not slither_change_data[index][0] in get_points_from_data(slither_data):
+                slither_change_data.pop(index)
+                break
+
+    dpg.configure_item(item=snake, points=get_points_from_data(slither_data))
+
+    time.sleep((-0.02*dpg.get_value(item=snake_speed)) + 0.26)  # Sets the speed of the snake depending on the value
+
+    return 0
 
 def move_snake():
-    global slither_data, slither_change_data, snake, snake_moving_flag, apple_points, snake_speed, snake_color, \
-        snake_length_flag, score, score_count, highest_score, highest_score_count
-
-
-    while True:
-        snake_moving_flag = 1
-        body_points = get_points_from_data(slither_data)
-        body_points.pop(0)  # List of all points of the snake except the head
-
-        board_local = Board()
-        for body_point in body_points:
-            board_local.set_quietly(body_point[0], body_point[1], PIXEL_HALF_BRIGHTNESS)
-        for apple_point in apple_points:
-            board_local.set_quietly(apple_point[0], apple_point[1], PIXEL_MAX_BRIGHTNESS)
-
-        write_board_to_uart(board_local)
-
-        if slither_data[0][0][1] == BOARD_WIDTH or slither_data[0][0][0] == BOARD_HEIGHT or \
-                slither_data[0][0][1] == 0 or slither_data[0][0][0] == 0 or \
-                slither_data[0][0] in body_points:  # Check if the snake touches the walls or itself
-
-            for i in range(2):
-                dpg.configure_item(item=snake, color=[255, 0, 0])
-                time.sleep(0.15)
-                dpg.configure_item(item=snake, color=dpg.get_value(item=snake_color))
-                time.sleep(0.15)
-
-            dpg.configure_item(item=snake, color=[255, 0, 0, 255])
-
-            snake_moving_flag = 0
-            break  # End Game
-
-        if slither_data[0][0] in apple_points:
-            # If the head of the snake passes through any of the apple coordinates, then the apple changes location
-            # and the snake's tail gets longer
-            apple_points = []
-            place_apple()
-
-            score_count += 1
-            dpg.set_value(item=score, value=score_count)
-
-            if score_count > highest_score_count:
-                highest_score_count = score_count
-                dpg.set_value(item=score, value=score_count)
-                dpg.set_value(item=highest_score, value=highest_score_count)
-
-            if snake_length_flag == 1:  # Only if user wants to grow the snake
-                add_length = 3  # Add additional 3 points to the tail
-                tail_direction = slither_data[-1][1]  # Direction the tail is moving in
-                tail_point = slither_data[-1][0][:]
-
-                if tail_direction == 1:
-                    for n in range(add_length):
-                        new_tail_point = [tail_point[0] + n + 1, tail_point[1]]
-                        slither_data.append([new_tail_point, tail_direction])
-
-                elif tail_direction == 2:
-                    for n in range(add_length):
-                        new_tail_point = [tail_point[0], tail_point[1] - 1 - n]
-                        slither_data.append([new_tail_point, tail_direction])
-
-                elif tail_direction == 3:
-                    for n in range(add_length):
-                        new_tail_point = [tail_point[0] - 1 - n, tail_point[1]]
-                        slither_data.append([new_tail_point, tail_direction])
-
-                else:
-                    for n in range(add_length):
-                        new_tail_point = [tail_point[0], tail_point[1] + 1 + n]
-                        slither_data.append([new_tail_point, tail_direction])
-
-        else:
-            for index in range(len(slither_data)):
-                # This loop controls the continuous motion of the snake
-                if slither_data[index][1] == 1:
-                    # Move West. Subtract X
-                    slither_data[index][0][0] -= 1
-
-                elif slither_data[index][1] == 2:
-                    # Move North. Add Y
-                    slither_data[index][0][1] += 1
-
-                elif slither_data[index][1] == 3:
-                    # Move East. Add X
-                    slither_data[index][0][0] += 1
-
-                elif slither_data[index][1] == 4:
-                    # Move South. Subtract Y
-                    slither_data[index][0][1] -= 1
-
-                if slither_data[index][0] in get_points_from_data(slither_change_data):
-                    # If the point of the snake is found in the list of direction of changes, then get the direction
-                    # of that point gets updated
-                    slither_data[index][1] = get_direction_from_data(slither_data[index][0], slither_change_data)
-
-            for index in range(len(slither_change_data)):
-                if not slither_change_data[index][0] in get_points_from_data(slither_data):
-                    slither_change_data.pop(index)
-                    break
-
-        dpg.configure_item(item=snake, points=get_points_from_data(slither_data))
-
-        time.sleep((-0.02*dpg.get_value(item=snake_speed)) + 0.26)  # Sets the speed of the snake depending on the value
-
+    while not manual:
+        if step() < 0:
+            break
 
 def get_points_from_data(data):
     # Functions takes entire data of slither and returns only the points
@@ -387,6 +390,9 @@ def key_release_handler(sender, app_data):
             snake_direction = 4
             slither_change_data.append([head_point, snake_direction])
 
+    if manual and app_data == 32:
+        step()
+
     print ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAaaa: " + str(app_data))
 
 
@@ -479,8 +485,14 @@ def main_window_setup():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
     parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str, default='/dev/ttyUSB0')
+    parser.add_argument('-m', '--manual', help='Stem on Space', dest='manual', type=bool, default=False)
 
     args = parser.parse_args()
+
+    manual = args.manual
+
+    if manual:
+        snake_moving_flag = 1
 
     try:
         serial_iface = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
