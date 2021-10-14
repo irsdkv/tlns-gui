@@ -107,6 +107,16 @@ def restart_snake():
     initial_slither_points()
     place_apple()
 
+    body_points = get_points_from_data(slither_data)
+    body_points.pop(0)  # List of all points of the snake except the head
+    board_local = Board()
+    for body_point in body_points:
+        board_local.set_quietly(body_point[0], body_point[1], PIXEL_HALF_BRIGHTNESS)
+    for apple_point in apple_points:
+        board_local.set_quietly(apple_point[0], apple_point[1], PIXEL_MAX_BRIGHTNESS)
+
+    write_board_to_uart(board_local)
+
     dpg.configure_item(item=snake, points=get_points_from_data(slither_data), color=dpg.get_value(item=snake_color))
 
 
