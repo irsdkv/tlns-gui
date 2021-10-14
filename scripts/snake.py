@@ -28,6 +28,7 @@ import time
 import random
 import webbrowser
 from theme_settings import *
+import argparse
 
 import tinyproto
 from tlns.tlns import Board, PIXEL_MAX_BRIGHTNESS, PIXEL_HALF_BRIGHTNESS
@@ -61,6 +62,19 @@ highest_score_count = 0
 BOARD_HEIGHT = 21
 BOARD_WIDTH = 21
 board = Board()
+ser = None
+
+
+def write_board_to_uart(board):
+    global ser
+    p = tinyproto.Hdlc()
+    p.begin()
+    p.put(board.__bytes__())
+    print(str(board))
+    result = p.tx()
+    if ser is not None:
+        ser.write(result)
+
 
 def initial_slither_points():
     # Function sets all the points required to draw the snake initially
@@ -116,7 +130,8 @@ def move_snake():
             board_local.set_quietly(body_point[0], body_point[1], PIXEL_HALF_BRIGHTNESS)
         for apple_point in apple_points:
             board_local.set_quietly(apple_point[0], apple_point[1], PIXEL_MAX_BRIGHTNESS)
-        print(str(board_local))
+
+        write_board_to_uart(board_local)
 
         if slither_data[0][0][1] == BOARD_WIDTH or slither_data[0][0][0] == BOARD_HEIGHT or \
                 slither_data[0][0][1] == 0 or slither_data[0][0][0] == 0 or \
@@ -447,5 +462,16 @@ def main_window_setup():
     dpg.start_dearpygui()
 
 
-initial_slither_points()
-main_window_setup()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
+    parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str,default='/dev/ttyUSB0')
+
+    args = parser.parse_args()
+
+    try:
+        ser = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
+    except:
+        print("No Serial Device. Run without it.")
+
+    initial_slither_points()
+    main_window_setup()
