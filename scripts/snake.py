@@ -393,8 +393,6 @@ def key_release_handler(sender, app_data):
     if manual and app_data == 32:
         step()
 
-    print ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAaaa: " + str(app_data))
-
 
 def main_window_setup():
     global snake, snake_burrow, apple, snake_speed, snake_color, apple_color, burrow_color, burrow
@@ -493,6 +491,9 @@ if __name__ == '__main__':
 
     if manual:
         snake_moving_flag = 1
+        print("Manual mode ON")
+    else:
+        print("Manual mode OFF")
 
     try:
         serial_iface = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
