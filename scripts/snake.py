@@ -472,8 +472,9 @@ if __name__ == '__main__':
 
     try:
         serial_iface = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
-    except:
+    except Exception as e:
         print("No Serial Device. Run without it.")
+        print("e: " + str(e))
 
     initial_slither_points()
     main_window_setup()
