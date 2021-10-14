@@ -98,17 +98,17 @@ class Board():
 
         return bytearray(pixels)
 
-    def tobytes(self, inverse = False):
+    def tobytes(self, inverse=False, mirror_y=False, mirror_x=False):
         bytes_ = b''
         pixels = []
         for x in range(self.w):
             for y in range(self.h):
+                y_final = y if not mirror_y else (self.h - y)
+                x_final = x if not mirror_x else (self.w - x)
                 if not inverse:
-                    pixels.append(self.get(y, x))
+                    pixels.append(self.get(y_final, x_final))
                 else:
-                    pixels.append(self.get(x, y))
-
-
+                    pixels.append(self.get(x_final, y_final))
 
         return bytearray(pixels)
 

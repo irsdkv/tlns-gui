@@ -69,7 +69,7 @@ def write_board_to_uart(board):
     global serial_iface
     p = tinyproto.Hdlc()
     p.begin()
-    p.put(board.tobytes(True))
+    p.put(board.tobytes(mirror_y=True))
     print(str(board))
     result = p.tx()
     if serial_iface is not None:
