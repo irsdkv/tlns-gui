@@ -103,8 +103,8 @@ class Board():
         pixels = []
         for x in range(self.w):
             for y in range(self.h):
-                y_final = y if not mirror_y else (self.h - y)
-                x_final = x if not mirror_x else (self.w - x)
+                y_final = y if not mirror_y else (self.h - y - 1)
+                x_final = x if not mirror_x else (self.w - x - 1)
                 if not inverse:
                     pixels.append(self.get(y_final, x_final))
                 else:
