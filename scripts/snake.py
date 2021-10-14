@@ -62,20 +62,20 @@ highest_score_count = 0
 BOARD_HEIGHT = 21
 BOARD_WIDTH = 21
 board = Board()
-ser = None
+serial_iface = None
 
 
 def write_board_to_uart(board):
-    global ser
+    global serial_iface
     p = tinyproto.Hdlc()
     p.begin()
     p.put(board.__bytes__())
     print(str(board))
     result = p.tx()
-    if ser is not None:
-        ser.write(result)
+    if serial_iface is not None:
+        serial_iface.write(result)
     else:
-        print("ser is None. Skip sending.")
+        print("serial_iface is None. Skip sending.")
 
 
 def initial_slither_points():
@@ -465,14 +465,13 @@ def main_window_setup():
 
 
 if __name__ == '__main__':
-    global ser
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
     parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str, default='/dev/ttyUSB0')
 
     args = parser.parse_args()
 
     try:
-        ser = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
+        serial_iface = serial.Serial(args.device, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
     except:
         print("No Serial Device. Run without it.")
 
