@@ -344,7 +344,8 @@ def key_release_handler(sender, app_data):
     if snake_moving_flag == 0:  # If snake not moving then exit
         if app_data == 69:
             move_snakeDispatcher()
-        return
+        if not manual:
+            return
 
     global slither_data, slither_change_data
     head_point = slither_data[0][0][:]
