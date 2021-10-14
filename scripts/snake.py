@@ -74,6 +74,8 @@ def write_board_to_uart(board):
     result = p.tx()
     if ser is not None:
         ser.write(result)
+    else:
+        print("ser is None. Skip sending.")
 
 
 def initial_slither_points():
@@ -463,8 +465,9 @@ def main_window_setup():
 
 
 if __name__ == '__main__':
+    global ser
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
-    parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str,default='/dev/ttyUSB0')
+    parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str, default='/dev/ttyUSB0')
 
     args = parser.parse_args()
 
