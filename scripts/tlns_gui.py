@@ -9,6 +9,7 @@ from itertools import count
 import tinyproto
 from tlns.tlns import Board, PIXEL_MAX_BRIGHTNESS
 import serial
+import argparse
 
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QMessageBox, \
     QComboBox, QDialog, QLabel
@@ -186,9 +187,11 @@ def get_random_target_point(point_: Point = None) -> Point:
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, iface):
+    def __init__(self, iface, no_path: bool = False, no_target: bool = False):
         super().__init__()
 
+        self.no_path = no_path
+        self.no_target = no_target
         self.label = QtWidgets.QLabel()
         canvas = QtGui.QPixmap(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.label.setPixmap(canvas)
@@ -206,8 +209,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ser = serial.Serial(iface, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
         self.update_board_target(None, self.target_pos)
         self.write_board_to_uart()
+        self.prev_pos = None
 
     def draw_target(self, color=Qt.white, point:Point=None):
+        if self.no_target:
+            return
         print("target_pos: ", str(self.target_pos.x) + ", " + str(self.target_pos.y))
         if not point:
             point = self.target_pos
@@ -228,6 +234,17 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         rect_pos = Board.get_pos(point, WINDOW_MUL_COEF)
+
+        if self.no_path and self.prev_pos:
+            x_prev = int(self.prev_pos.x / WINDOW_MUL_COEF)
+            y_prev = int(self.prev_pos.y / WINDOW_MUL_COEF)
+            x_rect = int(rect_pos.x / WINDOW_MUL_COEF)
+            y_rect = int(rect_pos.y / WINDOW_MUL_COEF)
+            if x_prev != x_rect or y_prev != y_rect:
+                self.board.unset(x_prev, y_prev)
+                self.board.set(x_rect, y_rect, BRIGHTNESS_ARROW)
+                self.prev_pos = rect_pos
+                self.write_board_to_uart()
 
         if rect_pos in self.path_rects:
             return
@@ -265,11 +282,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if rect_pos not in self.path_rects:
             #for old_rect in self.path_rects:
             #    self.board.set(int(old_rect.x/WINDOW_MUL_COEF), int(old_rect.y/WINDOW_MUL_COEF), 0)
-            self.board.set(int(rect_pos.x/WINDOW_MUL_COEF), int(rect_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_ARROW)
-            self.write_board_to_uart()
+            if not self.no_path:
+                self.board.set(int(rect_pos.x/WINDOW_MUL_COEF), int(rect_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_ARROW)
+                self.write_board_to_uart()
             self.path_rects.append(rect_pos)
+            self.prev_pos = rect_pos
 
-        self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
+        if not self.no_target:
+            self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
 
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
@@ -300,6 +320,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF) + 1, val)
             self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF), val)
             self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF), val)
+        if self.no_target:
+            return
         if old_pos:
             big_point(old_pos, 0)
         big_point(new_pos, BRIGHTNESS_TARGET)
@@ -344,6 +366,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.path_rects = []
         self.shots = []
         self.board = Board()
+        self.write_board_to_uart()
 
     def mouseMoveEvent(self, e):
         point = Point(e.x(), e.y())
@@ -375,6 +398,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
+    parser.add_argument('-d', '--device', help='Serial device path', dest='device', type=str, default='-')
+    parser.add_argument('--no-path', help='No path on device', dest='no_path', type=bool, default=False)
+    parser.add_argument('--no-target', help='No target', dest='no_target', type=bool, default=False)
+
+    args = parser.parse_args()
+
     app = QApplication(sys.argv)
     loop = QEventLoop(app)
 
@@ -383,20 +413,24 @@ def main():
     app.setFont(font)
 
     asyncio.set_event_loop(loop)  # NEW must set the event loop
-    while True:
-        # Asking the user to specify which interface to work with
-        try:
-            iface = run_setup_window()
-            if not iface:
-                sys.exit(0)
-        except Exception as ex:
-            show_error('Fatal error', 'Could not list available interfaces', ex, blocking=True)
-            sys.exit(1)
 
-        break
+    if args.device == '-':
+        while True:
+            # Asking the user to specify which interface to work with
+            try:
+                iface = run_setup_window()
+                if not iface:
+                    sys.exit(0)
+            except Exception as ex:
+                show_error('Fatal error', 'Could not list available interfaces', ex, blocking=True)
+                sys.exit(1)
+
+            break
+    else:
+        iface = args.device
 
     print("iface: " + iface)
-    window = MainWindow(iface)
+    window = MainWindow(iface, args.no_path, args.no_target)
     window.show()
     app.exec_()
 
