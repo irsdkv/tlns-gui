@@ -217,12 +217,24 @@ class MainWindow(QtWidgets.QMainWindow):
         print("target_pos: ", str(self.target_pos.x) + ", " + str(self.target_pos.y))
         if not point:
             point = self.target_pos
+        points = list()
+        points.append(point)
+        points.append(Point(point.x - WINDOW_MUL_COEF, point.y))
+        points.append(Point(point.x - WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
+        points.append(Point(point.x - WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
+        points.append(Point(point.x + WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
+        points.append(Point(point.x + WINDOW_MUL_COEF, point.y))
+        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
+        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
+        points.append(Point(point.x, point.y + WINDOW_MUL_COEF))
+        points.append(Point(point.x, point.y - WINDOW_MUL_COEF))
         painter = QtGui.QPainter(self.label.pixmap())
         pen = QtGui.QPen()
         pen.setWidth(WINDOW_MUL_COEF)
         pen.setColor(color)
         painter.setPen(pen)
-        painter.drawPoint(*point)
+        for point_ in points:
+            painter.drawPoint(*point_)
         painter.end()
 
     def redraw_path_rects(self):
@@ -304,22 +316,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def hit(self, point:Point, target_pos:Point=None) -> bool:
         compare_pos = target_pos if target_pos else self.target_pos
-        hit_x = (compare_pos.x - WINDOW_MUL_COEF/2) < point.x < (compare_pos.x + WINDOW_MUL_COEF/2)
-        hit_y = (compare_pos.y - WINDOW_MUL_COEF/2) < point.y < (compare_pos.y + WINDOW_MUL_COEF/2)
+        hit_x = (compare_pos.x - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.x < (compare_pos.x + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
+        hit_y = (compare_pos.y - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.y < (compare_pos.y + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
         return hit_x and hit_y
 
     def update_board_target(self, old_pos, new_pos):
         def big_point(point, val):
             self.board.set(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF), val)
-            return
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF) - 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF) + 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF) - 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF) + 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF) - 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF) + 1, val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) - 1, int(point.y / WINDOW_MUL_COEF), val)
-            self.board.set_quietly(int(point.x / WINDOW_MUL_COEF) + 1, int(point.y / WINDOW_MUL_COEF), val)
+#            return
+            x = int(point.x / WINDOW_MUL_COEF)
+            y = int(point.y / WINDOW_MUL_COEF)
+            if y > 0:
+                self.board.set_quietly(x, y - 1, val)
+            self.board.set_quietly(x, y + 1, val)
+            if x > 0 and y > 1:
+                self.board.set_quietly(x - 1, y - 1, val)
+            if x > 0:
+                self.board.set_quietly(x - 1, y + 1, val)
+            if y > 0:
+                self.board.set_quietly(x + 1, y - 1, val)
+            self.board.set_quietly(x + 1, y + 1, val)
+            if x > 0:
+                self.board.set_quietly(x - 1, y, val)
+            self.board.set_quietly(x + 1, y, val)
         if self.no_target:
             return
         if old_pos:
