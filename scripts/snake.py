@@ -44,6 +44,8 @@ snake_moving_flag = 0  # flag to check if snake is moving or not
 snake_length_flag = 1  # Flag to check if the snake should grow or not. 1=grow 0=fixed
 fix_snake_length = None
 
+pause = False
+
 apple = None  # Apple item in DPG
 apple_points = []   # Every unit coordinate of the apple rectangle. If the snake passes through any of these
 # coordinate, then the apple changes location
@@ -130,6 +132,8 @@ def move_snakeDispatcher():
 def step():
     global slither_data, slither_change_data, snake, snake_moving_flag, apple_points, snake_speed, snake_color, \
         snake_length_flag, score, score_count, highest_score, highest_score_count, manual
+    if pause:
+        return 0
     snake_moving_flag = 1
     body_points = get_points_from_data(slither_data)
     body_points.pop(0)  # List of all points of the snake except the head
@@ -227,7 +231,8 @@ def step():
 
     dpg.configure_item(item=snake, points=get_points_from_data(slither_data))
 
-    time.sleep((-0.02*dpg.get_value(item=snake_speed)) + 0.26)  # Sets the speed of the snake depending on the value
+    time_pause = (-0.1*dpg.get_value(item=snake_speed)) + 1.1
+    time.sleep(time_pause)  # Sets the speed of the snake depending on the value
 
     return 0
 
@@ -333,13 +338,19 @@ def open_help():
 
 
 def key_release_handler(sender, app_data):
-    global snake_moving_flag
+    global snake_moving_flag, pause
     # Function listening to key release events. Arrow keys change snake direction and keeps a track of the point when
     # the key event occurs
 
     if app_data == 81:
         # TODO
         restart_snake()
+
+    if not manual and app_data == 32:
+        pause = False if pause else True
+
+    if pause:
+        return
 
     if snake_moving_flag == 0:  # If snake not moving then exit
         if app_data == 69:
