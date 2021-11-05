@@ -164,16 +164,16 @@ def get_xy(w,h) -> (int, int):
 
 def get_random_target_pos(current_pos_x:int = None, current_pos_y:int = None) -> (int, int):
     random.seed()
-    w = random.randint(0, Board.WIDTH - 1)
-    h = random.randint(0, Board.HEIGHT - 1)
+    w = random.randint(1, Board.WIDTH - 2)
+    h = random.randint(1, Board.HEIGHT - 2)
 
     if current_pos_x:
         while current_pos_x == w:
-            w = random.randint(0, Board.WIDTH - 1)
+            w = random.randint(1, Board.WIDTH - 2)
 
     if current_pos_y:
         while current_pos_y == h:
-            w = random.randint(0, Board.HEIGHT - 1)
+            w = random.randint(1, Board.HEIGHT - 2)
 
     return get_x(w), get_y(h)
 
