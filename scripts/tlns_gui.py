@@ -18,7 +18,7 @@ from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
 
 from tlns.tlns import *
 
-WINDOW_MUL_COEF = 20
+WINDOW_MUL_COEF = 40
 
 WINDOW_WIDTH = Board.WIDTH * WINDOW_MUL_COEF
 WINDOW_HEIGHT = Board.HEIGHT * WINDOW_MUL_COEF
