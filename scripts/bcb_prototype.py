@@ -414,7 +414,7 @@ def main():
 
     asyncio.set_event_loop(loop)  # NEW must set the event loop
 
-    if False:
+    if True:
         if args.device == '-':
             while True:
                 # Asking the user to specify which interface to work with
