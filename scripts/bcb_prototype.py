@@ -298,11 +298,19 @@ class MainWindow(QtWidgets.QMainWindow):
         timer = QTimer(self)
         timer.setSingleShot(False)
         timer.timeout.connect(self._tick)
-        timer.start(1000)
+        timer.start(500)
+
+        timer_board = QTimer(self)
+        timer_board.setSingleShot(False)
+        timer_board.timeout.connect(self._write)
+        timer_board.start(500)
 
     def _tick(self):
         self._rsumm.tick()
         self.draw_board(True)
+
+    def _write(self):
+        self.write_board_to_uart()
 
     def draw_picture(self):
         painter = QtGui.QPainter(self.label.pixmap())
