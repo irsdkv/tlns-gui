@@ -17,6 +17,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
 
 from tlns.tlns import *
+from util.util import *
 
 WINDOW_MUL_COEF = 40
 
@@ -343,11 +344,12 @@ class MainWindow(QtWidgets.QMainWindow):
             big_point(old_pos, 0)
         big_point(new_pos, BRIGHTNESS_TARGET)
 
-    def redraw_target(self):
+    def redraw_target(self, new_tg=True):
         old_pos = copy.copy(self.target_pos)
         self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), 0)
         self.draw_target(Qt.black)
-        self.target_pos = get_random_target_point(self.target_pos)
+        if new_tg:
+            self.target_pos = get_random_target_point(self.target_pos)
         self.draw_target()
         self.update_board_target(old_pos, self.target_pos)
 
@@ -392,8 +394,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.hit(point):
             self.clear_all()
-            self.draw_target(point=self.target_pos)
-            self.write_board_to_uart()
+            self.redraw_target(False)
         else:
             self.line.append(point)
 
