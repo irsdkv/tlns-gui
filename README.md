@@ -1,5 +1,7 @@
 # Install
 
+1. Install PyQt5
+2. 
 ```bash
 $ sudo apt-get install python3-dev
 $ # git clone git@github.com:irsdkv/tlns-gui.git

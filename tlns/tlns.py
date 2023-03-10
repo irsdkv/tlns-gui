@@ -46,11 +46,13 @@ class Board():
     def set(self, x, y, val=PIXEL_MAX_BRIGHTNESS):
         assert x < self.w
         assert y < self.h
-        self.pix[x][y] = val
+        self.set_quietly(x, y, val)
 
     def set_quietly(self, x, y, val=PIXEL_MAX_BRIGHTNESS):
         if x >= self.w or y >= self.h:
             return
+        if isinstance(val, float) and val <= 1.:
+            val = int(val * PIXEL_MAX_BRIGHTNESS)
         self.pix[x][y] = val
 
     def unset(self,  x, y):
@@ -94,7 +96,7 @@ class Board():
         pixels = []
         for x in range(self.w):
             for y in range(self.h):
-                pixels.append(self.get(y, x))
+                pixels.append(self.get(self.h - y - 1, x))
 
         return bytearray(pixels)
 
