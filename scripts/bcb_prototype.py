@@ -235,7 +235,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.p = tinyproto.Hdlc()
         self.p.begin()
         self.ser = serial.Serial(iface, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
-        self._health_indicator = ColumnIndicator(10, 45)
+        self._health_indicator_left = ColumnIndicator(10, 45)
+        self._health_indicator_right = ColumnIndicator(10, 45)
         self.draw_board()
 
     def draw_picture(self):
@@ -266,8 +267,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update()
 
     def draw_health(self, color=Qt.white):
-        for idx, br in enumerate(self._health_indicator.brightnesses()):
-            for x_idx in range(0, self.board.WIDTH):
+        for idx, br in enumerate(self._health_indicator_left.brightnesses()):
+            for x_idx in range(0, int(self.board.WIDTH/2) - 1):
+                self.board.set(x_idx, idx*2, int(br/100*0xFF))
+                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
+        for idx, br in enumerate(self._health_indicator_right.brightnesses()):
+            for x_idx in range(int(self.board.WIDTH/2) + 1, self.board.WIDTH):
                 self.board.set(x_idx, idx*2, int(br/100*0xFF))
                 self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
 
@@ -301,9 +306,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Down:
-            self._health_indicator.fill(self._health_indicator.percent() - 2)
+            self._health_indicator_left.fill(self._health_indicator_left.percent() - 2)
         elif event.key() == QtCore.Qt.Key.Key_Up:
-            self._health_indicator.fill(self._health_indicator.percent() + 2)
+            self._health_indicator_left.fill(self._health_indicator_left.percent() + 2)
+        if event.key() == QtCore.Qt.Key.Key_Left:
+            self._health_indicator_right.fill(self._health_indicator_right.percent() - 2)
+        elif event.key() == QtCore.Qt.Key.Key_Right:
+            self._health_indicator_right.fill(self._health_indicator_right.percent() + 2)
 
         self.draw_board()
         self.update()
