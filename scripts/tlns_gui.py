@@ -17,7 +17,6 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
 
 from tlns.tlns import *
-from util.util import *
 
 WINDOW_MUL_COEF = 40
 
@@ -344,12 +343,11 @@ class MainWindow(QtWidgets.QMainWindow):
             big_point(old_pos, 0)
         big_point(new_pos, BRIGHTNESS_TARGET)
 
-    def redraw_target(self, new_target=True):
+    def redraw_target(self):
         old_pos = copy.copy(self.target_pos)
         self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), 0)
         self.draw_target(Qt.black)
-        if new_target:
-            self.target_pos = get_random_target_point(self.target_pos)
+        self.target_pos = get_random_target_point(self.target_pos)
         self.draw_target()
         self.update_board_target(old_pos, self.target_pos)
 
@@ -377,7 +375,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for point in self.line:
             self.draw_point(point)
 
-    def clear_all(self, redraw = True):
+    def clear_all(self):
         painter = QtGui.QPainter(self.label.pixmap())
         painter.setBrush(QBrush(Qt.black, Qt.SolidPattern))
         painter.drawRect(0, 0, self.label.pixmap().width(), self.label.pixmap().height())
@@ -385,8 +383,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.path_rects = []
         self.shots = []
         self.board = Board()
-        if redraw:
-            self.write_board_to_uart()
+        self.write_board_to_uart()
 
     def mouseMoveEvent(self, e):
         point = Point(e.x(), e.y())
@@ -394,10 +391,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_path_rect(point)
 
         if self.hit(point):
-            self.path_rects = []
-            self.clear_all(redraw=False)
-            self.redraw_line()
-            self.redraw_target(new_target=False)
+            self.clear_all()
+            self.draw_target(point=self.target_pos)
             self.write_board_to_uart()
         else:
             self.line.append(point)
@@ -412,17 +407,15 @@ class MainWindow(QtWidgets.QMainWindow):
             print("target: " + str(self.target_pos) + ", mouse: " + str(point))
             if self.hit(point):
                 self.path_rects = []
-                self.clear_all(redraw=False)
+                self.clear_all()
                 self.redraw_line()
                 self.redraw_target()
                 self.write_board_to_uart()
             else:
                 self.redraw_path()
         elif e.buttons() == QtCore.Qt.RightButton:
-            self.clear_all(redraw=False)
-            self.redraw_target(new_target=False)
+            self.clear_all()
             self.draw_target(point=self.target_pos)
-            self.write_board_to_uart()
         self.update()
 
 
