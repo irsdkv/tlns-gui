@@ -17,6 +17,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
 
 from tlns.tlns import *
+from util.util import *
 
 WINDOW_MUL_COEF = 40
 

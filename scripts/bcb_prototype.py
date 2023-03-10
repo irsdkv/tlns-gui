@@ -13,6 +13,7 @@ import serial
 import argparse
 
 from tlns.tlns import *
+from util.util import *
 
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QMessageBox, \
     QComboBox, QDialog, QLabel
