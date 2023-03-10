@@ -2,3 +2,5 @@
 .venv
 tlns/__pycache__
 tlns_gui.egg-info/
+build
+dist

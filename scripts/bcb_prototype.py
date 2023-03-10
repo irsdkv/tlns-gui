@@ -1,3 +1,5 @@
+import copy
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import random
 import asyncio
@@ -7,16 +9,15 @@ import qtawesome
 import sys
 from itertools import count
 import tinyproto
-from tlns.tlns import Board, PIXEL_MAX_BRIGHTNESS
 import serial
 import argparse
 
+from tlns.tlns import *
+
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QMessageBox, \
     QComboBox, QDialog, QLabel
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush
-
-from tlns.tlns import *
+from PyQt5.QtCore import Qt, QTimer, QSize, QPoint, QRectF, QSizeF
+from PyQt5.QtGui import QFontInfo, QFont, QPen, QBrush, QColor
 
 WINDOW_MUL_COEF = 40
 
@@ -25,6 +26,61 @@ WINDOW_HEIGHT = Board.HEIGHT * WINDOW_MUL_COEF
 
 BRIGHTNESS_ARROW = 0x01
 BRIGHTNESS_TARGET = PIXEL_MAX_BRIGHTNESS
+
+
+class ColumnIndicator:
+    class Cell:
+        def __init__(self, number, brightness):
+            self.number = number
+            self.brightness = brightness
+
+    def __init__(self, height = 10, percent: float = 100): # percent: from 0. to 100.
+        self._percent = percent
+        self._height = height
+        self._perc_max = 100.
+        self._br_max = 100.
+        self._cell_weight = self._perc_max / self._height
+
+        self._cells = [self.Cell(idx, 0) for idx in range(0, self._height)]
+
+        self.fill(self._percent)
+
+    def fill(self, percent):
+        if percent > 100.:
+            percent = 100.
+        if percent < 0.:
+            percent = 0.
+        self._percent = percent
+        for cell_idx in range(0, self._height):
+            cell_br = self._cell_br(cell_idx, self._percent)
+            self._cells[cell_idx] = self.Cell(cell_idx, cell_br)
+
+    def _cell_br(self, cell_idx, percent):
+        full_cells_num = percent // self._cell_weight
+
+        if cell_idx < full_cells_num:
+            return self._br_max
+        elif cell_idx == full_cells_num:
+            return (percent % self._cell_weight) * (self._br_max / self._cell_weight)
+        else:
+            return 0
+
+    def cells(self):
+        return copy.copy(self._cells)
+
+    def cell_br(self, cell_idx):
+        return self._cells[cell_idx].brightness
+
+    def brightnesses(self):
+        for cell in self._cells:
+            yield cell.brightness
+
+    def height(self):
+        return self._height
+
+    def percent(self):
+        return self._percent
+
 
 def get_monospace_font():
     preferred = ['Consolas', 'DejaVu Sans Mono', 'Monospace', 'Lucida Console', 'Monaco']
@@ -160,30 +216,6 @@ def get_xy(w,h) -> (int, int):
     return get_x(w), get_y(h)
 
 
-def get_random_target_pos(current_pos_x:int = None, current_pos_y:int = None) -> (int, int):
-    random.seed()
-    w = random.randint(1, Board.WIDTH - 2)
-    h = random.randint(1, Board.HEIGHT - 2)
-
-    if current_pos_x:
-        while current_pos_x == w:
-            w = random.randint(1, Board.WIDTH - 2)
-
-    if current_pos_y:
-        while current_pos_y == h:
-            w = random.randint(1, Board.HEIGHT - 2)
-
-    return get_x(w), get_y(h)
-
-
-def get_random_target_point(point_: Point = None) -> Point:
-    if point_:
-        point = point_
-    else:
-        point = Point(None, None)
-    return Point(*get_random_target_pos(*point))
-
-
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, iface, no_path: bool = False, no_target: bool = False):
         super().__init__()
@@ -196,110 +228,48 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.label)
         self.setMouseTracking(True)
         self.centralWidget().setMouseTracking(True)
-        self.target_pos = get_random_target_point()
-        self.draw_target()
+        self._lines = [1]
         self.line = []
-        self.path_rects = []
         self.shots = []
         self.board = Board()
         self.p = tinyproto.Hdlc()
         self.p.begin()
         self.ser = serial.Serial(iface, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
-        self.update_board_target(None, self.target_pos)
+        self._health_indicator = ColumnIndicator(10, 45)
+        self.draw_board()
+
+    def draw_picture(self):
+        painter = QtGui.QPainter(self.label.pixmap())
+        for y_idx in range(self.board.HEIGHT):
+            for x_idx in range(self.board.WIDTH):
+                br = self.board.get(y_idx, x_idx)
+                max_br = PIXEL_MAX_BRIGHTNESS
+                col = QColor(int(br * 255 / max_br), int(br * 255 / max_br), int(br * 255 / max_br))
+
+                rect_h = WINDOW_MUL_COEF
+                rect_w = WINDOW_MUL_COEF
+
+                rect_y = WINDOW_HEIGHT - int(rect_h * y_idx)
+                rect_x = int(rect_w * x_idx)
+                rect = QRectF(QPoint(rect_x, rect_y), QSizeF(rect_w, -rect_h))
+
+                painter.setPen(col)
+                painter.setBrush(col)
+                painter.drawRect(rect)
+
+        painter.end()
+
+    def draw_board(self):
+        self.draw_health()
+        self.draw_picture()
         self.write_board_to_uart()
-        self.prev_pos = None
+        self.update()
 
-    def draw_target(self, color=Qt.white, point:Point=None):
-        if self.no_target:
-            return
-        print("target_pos: ", str(self.target_pos.x) + ", " + str(self.target_pos.y))
-        if not point:
-            point = self.target_pos
-        points = list()
-        points.append(point)
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y))
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x, point.y - WINDOW_MUL_COEF))
-        painter = QtGui.QPainter(self.label.pixmap())
-        pen = QtGui.QPen()
-        pen.setWidth(WINDOW_MUL_COEF)
-        pen.setColor(color)
-        painter.setPen(pen)
-        for point_ in points:
-            painter.drawPoint(*point_)
-        painter.end()
-
-    def redraw_path_rects(self):
-        for point in self.path_rects:
-            self.draw_path_rect(point)
-
-    def draw_path_rect(self, point:Point, color=Qt.gray):
-        if self.hit(point):
-            return
-
-        rect_pos = Board.get_pos(point, WINDOW_MUL_COEF)
-
-        if self.no_path and self.prev_pos:
-            x_prev = int(self.prev_pos.x / WINDOW_MUL_COEF)
-            y_prev = int(self.prev_pos.y / WINDOW_MUL_COEF)
-            x_rect = int(rect_pos.x / WINDOW_MUL_COEF)
-            y_rect = int(rect_pos.y / WINDOW_MUL_COEF)
-            if x_prev != x_rect or y_prev != y_rect:
-                self.board.unset(x_prev, y_prev)
-                self.board.set(x_rect, y_rect, BRIGHTNESS_ARROW)
-                self.prev_pos = rect_pos
-                self.write_board_to_uart()
-
-        if rect_pos in self.path_rects:
-            return
-
-        print("rect_pos: ", str(rect_pos))
-
-        painter = QtGui.QPainter(self.label.pixmap())
-        painter.setPen(QPen(Qt.magenta, 2, Qt.SolidLine))
-        painter.setBrush(QBrush(color, Qt.SolidPattern))
-        painter.drawRect(rect_pos.x, rect_pos.y, WINDOW_MUL_COEF, WINDOW_MUL_COEF)
-
-        if False and self.path_rects:
-            painter.setPen(QPen(color, 2, Qt.SolidLine))
-            if self.path_rects[-1].x == rect_pos.x:
-                x = rect_pos.x + 2
-                if rect_pos.y > self.path_rects[-1].y:
-                    y = rect_pos.y - 2
-                else:
-                    y = self.path_rects[-1].y - 2
-                painter.drawRect(x, y, WINDOW_MUL_COEF-4, 4)
-            if self.path_rects[-1].y == rect_pos.y:
-                y = rect_pos.y + 2
-                if rect_pos.x > self.path_rects[-1].x:
-                    x = rect_pos.x - 2
-                else:
-                    x = self.path_rects[-1].x - 2
-                    print("rect_pos.x < self.path_rects[-1].x")
-                painter.drawRect(x, y, 4, WINDOW_MUL_COEF-4)
-
-        painter.end()
-
-        self.redraw_line()
-        self.redraw_shots()
-        self.draw_target()
-        if rect_pos not in self.path_rects:
-            #for old_rect in self.path_rects:
-            #    self.board.set(int(old_rect.x/WINDOW_MUL_COEF), int(old_rect.y/WINDOW_MUL_COEF), 0)
-            if not self.no_path:
-                self.board.set(int(rect_pos.x/WINDOW_MUL_COEF), int(rect_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_ARROW)
-                self.write_board_to_uart()
-            self.path_rects.append(rect_pos)
-            self.prev_pos = rect_pos
-
-        if not self.no_target:
-            self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
+    def draw_health(self, color=Qt.white):
+        for idx, br in enumerate(self._health_indicator.brightnesses()):
+            for x_idx in range(0, self.board.WIDTH):
+                self.board.set(x_idx, idx*2, int(br/100*0xFF))
+                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
 
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
@@ -307,88 +277,15 @@ class MainWindow(QtWidgets.QMainWindow):
         result = self.p.tx()
         self.ser.write(result)
 
-    def redraw_path(self):
-        self.redraw_path_rects()
-        self.redraw_line()
-        self.redraw_shots()
-
-    def hit(self, point:Point, target_pos:Point=None) -> bool:
-        compare_pos = target_pos if target_pos else self.target_pos
-        hit_x = (compare_pos.x - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.x < (compare_pos.x + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
-        hit_y = (compare_pos.y - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.y < (compare_pos.y + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
-        return hit_x and hit_y
-
-    def update_board_target(self, old_pos, new_pos):
-        def big_point(point, val):
-            self.board.set(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF), val)
-#            return
-            x = int(point.x / WINDOW_MUL_COEF)
-            y = int(point.y / WINDOW_MUL_COEF)
-            if y > 0:
-                self.board.set_quietly(x, y - 1, val)
-            self.board.set_quietly(x, y + 1, val)
-            if x > 0 and y > 1:
-                self.board.set_quietly(x - 1, y - 1, val)
-            if x > 0:
-                self.board.set_quietly(x - 1, y + 1, val)
-            if y > 0:
-                self.board.set_quietly(x + 1, y - 1, val)
-            self.board.set_quietly(x + 1, y + 1, val)
-            if x > 0:
-                self.board.set_quietly(x - 1, y, val)
-            self.board.set_quietly(x + 1, y, val)
-        if self.no_target:
-            return
-        if old_pos:
-            big_point(old_pos, 0)
-        big_point(new_pos, BRIGHTNESS_TARGET)
-
-    def redraw_target(self):
-        old_pos = copy.copy(self.target_pos)
-        self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), 0)
-        self.draw_target(Qt.black)
-        self.target_pos = get_random_target_point(self.target_pos)
-        self.draw_target()
-        self.update_board_target(old_pos, self.target_pos)
-
-    def redraw_shots(self):
-        for point, target_pos in self.shots:
-            self.draw_shot(point, target_pos)
-
-    def draw_shot(self, point:Point, target_pos:Point=None):
-        painter = QtGui.QPainter(self.label.pixmap())
-        painter.setPen(QPen(Qt.green, 2, Qt.SolidLine))
-        color = Qt.red if self.hit(point, target_pos) else Qt.white
-        painter.setBrush(QBrush(color, Qt.SolidPattern))
-        painter.drawEllipse(point.x - 7, point.y - 7, 14, 14)
-
-    def draw_point(self, point:Point):
-        painter = QtGui.QPainter(self.label.pixmap())
-        pen = QtGui.QPen()
-        pen.setWidth(2)
-        pen.setColor(Qt.cyan)
-        painter.setPen(pen)
-        painter.drawPoint(*point)
-        painter.end()
-
-    def redraw_line(self):
-        for point in self.line:
-            self.draw_point(point)
-
     def clear_all(self):
         painter = QtGui.QPainter(self.label.pixmap())
         painter.setBrush(QBrush(Qt.black, Qt.SolidPattern))
         painter.drawRect(0, 0, self.label.pixmap().width(), self.label.pixmap().height())
-        self.line = []
-        self.path_rects = []
-        self.shots = []
         self.board = Board()
         self.write_board_to_uart()
 
     def mouseMoveEvent(self, e):
         point = Point(e.x(), e.y())
-        self.draw_point(point)
-        self.draw_path_rect(point)
 
         self.line.append(point)
 
@@ -396,21 +293,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def mousePressEvent(self, e: QtGui.QMouseEvent) -> None:
         if e.buttons() == QtCore.Qt.LeftButton:
-            old_target_pos = self.target_pos
-            point = Point(e.x(), e.y())
-            self.shots.append((point, old_target_pos))
-            print("target: " + str(self.target_pos) + ", mouse: " + str(point))
-            if self.hit(point):
-                self.path_rects = []
-                self.clear_all()
-                self.redraw_line()
-                self.redraw_target()
-                self.write_board_to_uart()
-            else:
-                self.redraw_path()
+            pass
         elif e.buttons() == QtCore.Qt.RightButton:
-            self.clear_all()
-            self.draw_target(point=self.target_pos)
+            pass
+
+        self.update()
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key.Key_Down:
+            self._health_indicator.fill(self._health_indicator.percent() - 2)
+        elif event.key() == QtCore.Qt.Key.Key_Up:
+            self._health_indicator.fill(self._health_indicator.percent() + 2)
+
+        self.draw_board()
         self.update()
 
 
@@ -431,25 +326,29 @@ def main():
 
     asyncio.set_event_loop(loop)  # NEW must set the event loop
 
-    if args.device == '-':
-        while True:
-            # Asking the user to specify which interface to work with
-            try:
-                iface = run_setup_window()
-                if not iface:
-                    sys.exit(0)
-            except Exception as ex:
-                show_error('Fatal error', 'Could not list available interfaces', ex, blocking=True)
-                sys.exit(1)
+    if True:
+        if args.device == '-':
+            while True:
+                # Asking the user to specify which interface to work with
+                try:
+                    iface = run_setup_window()
+                    if not iface:
+                        sys.exit(0)
+                except Exception as ex:
+                    show_error('Fatal error', 'Could not list available interfaces', ex, blocking=True)
+                    sys.exit(1)
 
-            break
+                break
+        else:
+            iface = args.device
     else:
-        iface = args.device
+        iface = '/dev/ttyS4'
 
     print("iface: " + iface)
     window = MainWindow(iface, args.no_path, args.no_target)
     window.show()
     app.exec_()
+
 
 if __name__ == '__main__':
     main()

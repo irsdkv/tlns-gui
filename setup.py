@@ -14,8 +14,9 @@ setup(
     license = "MIT",
     keywords = "tlns",
     scripts=['scripts/tlns_gui.py',
-             'scripts/tlns_serial_testing.py'],
-    package_data={'drone_planner': ['data']},
+             'scripts/tlns_serial_testing.py',
+             'scripts/bcb_prototype.py'],
+    package_data={'tlns_test': ['data']},
     install_requires=[
         'QtAwesome==0.5.8',
         'asyncqt==0.7.0',

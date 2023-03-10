@@ -144,8 +144,6 @@ def run_setup_window():
 
     return result
 
-
-
 def get_x(point_x: int) -> int:
     assert point_x < Board.WIDTH
     assert point_x >= 0
