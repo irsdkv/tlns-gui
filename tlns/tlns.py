@@ -96,7 +96,7 @@ class Board():
         pixels = []
         for x in range(self.w):
             for y in range(self.h):
-                pixels.append(self.get(self.h - y - 1, x))
+                pixels.append(self.get(y, x))
 
         return bytearray(pixels)
 
