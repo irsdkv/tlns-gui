@@ -95,7 +95,7 @@ class RectangleSumm:
         self._arrow_point = Point(round(self._w/2), 0)
 
         self._tick_counter = 0
-        self._tick_counter_max = 10
+        self._tick_counter_max = 2
 
     def move(self, inc_x, inc_y):
         self._map[self._arrow_point.x][self._arrow_point.y] = 0
@@ -128,10 +128,8 @@ class RectangleSumm:
 
         if self._tick_counter*mul < self._tick_counter_max:
             self._map[self._target_point.x][self._target_point.y] = 1
-            self._map[self._arrow_point.x][self._arrow_point.y] = 0
         else:
             self._map[self._target_point.x][self._target_point.y] = 0
-            self._map[self._arrow_point.x][self._arrow_point.y] = 1
 
     def __getitem__(self, i):
         return self._map[i]
@@ -300,11 +298,11 @@ class MainWindow(QtWidgets.QMainWindow):
         timer = QTimer(self)
         timer.setSingleShot(False)
         timer.timeout.connect(self._tick)
-        timer.start(100)
+        timer.start(1000)
 
     def _tick(self):
         self._rsumm.tick()
-        self.draw_board()
+        self.draw_board(True)
 
     def draw_picture(self):
         painter = QtGui.QPainter(self.label.pixmap())
@@ -327,18 +325,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         painter.end()
 
-    def draw_board(self):
+    def draw_board(self, write_to_uart=False):
         self.draw_health()
-        #self.draw_rsumm()
+        self.draw_rsumm()
         self.draw_picture()
-        self.write_board_to_uart()
+        if write_to_uart:
+            self.write_board_to_uart()
         self.update()
 
     def draw_health(self, color=Qt.white):
         for idx, br in enumerate(self._health_indicator_left.brightnesses()):
-            for x_idx in range(0, self.board.WIDTH):
-                self.board.set(x_idx, idx * 2, int(br / 100 * 0xFF))
-                self.board.set(x_idx, idx * 2 + 1, int(br / 100 * 0xFF))
+            for x_idx in range(0, 2):
+                self.board.set(x_idx, idx*2, int(br/100*0xFF))
+                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
+        for idx, br in enumerate(self._health_indicator_right.brightnesses()):
+            for x_idx in range(int(self.board.WIDTH - 2), self.board.WIDTH):
+                self.board.set(x_idx, idx*2, int(br/100*0xFF))
+                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
 
     def draw_rsumm(self, color=Qt.white):
         for idx_x in range(self._rsumm.w):
@@ -389,7 +392,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self._rsumm.move(1, 0)
 
         self.draw_board()
-        self.update()
 
 
 
