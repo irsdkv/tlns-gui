@@ -31,3 +31,10 @@ $ source  .venv/bin/activate
 $ tlns_serial_testing.py data/serial_test.toml -d </serial/device/path> [-B baud]
 $ deactivate
 ```
+
+# BCB Prototype
+
+## Scales
+Controls: Key arrow Up/Down and Left Right
+
+## Rectangles

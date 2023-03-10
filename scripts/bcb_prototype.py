@@ -82,6 +82,61 @@ class ColumnIndicator:
         return self._percent
 
 
+class RectangleSumm:
+    def __init__(self, width=17, height=17):
+        self.w = width
+        self._w = width
+        self.h = height
+        self._h = height
+
+        self._map = [[0 for x in range(self._w)] for y in range(self._h)]
+
+        self._target_point = Point(round(self._w/2), self._h - 1)
+        self._arrow_point = Point(round(self._w/2), 0)
+
+        self._tick_counter = 0
+        self._tick_counter_max = 10
+
+    def move(self, inc_x, inc_y):
+        self._map[self._arrow_point.x][self._arrow_point.y] = 0
+
+        self._arrow_point.x += inc_x
+        if self._arrow_point.x < 0: self._arrow_point.x = 0
+        if self._arrow_point.x >= self._w: self._arrow_point.x = self._w - 1
+
+        self._arrow_point.y += inc_y
+        if self._arrow_point.y < 0: self._arrow_point.y = 0
+        if self._arrow_point.y >= self._h: self._arrow_point.y = self._h - 1
+
+        self._map[self._arrow_point.x][self._arrow_point.y] = 1
+
+    def tick(self):
+        self._tick_counter += 1
+        self._tick_counter = self._tick_counter % self._tick_counter_max
+
+        self._map[self._target_point.x][self._target_point.y] = 1
+
+        mul = 2
+
+        if self._target_point.x == self._arrow_point.x and \
+                self._target_point.y == self._arrow_point.y:
+            if self._tick_counter % 2:
+                self._map[self._target_point.x][self._target_point.y] = 1
+            else:
+                self._map[self._target_point.x][self._target_point.y] = 0
+            return
+
+        if self._tick_counter*mul < self._tick_counter_max:
+            self._map[self._target_point.x][self._target_point.y] = 1
+            self._map[self._arrow_point.x][self._arrow_point.y] = 0
+        else:
+            self._map[self._target_point.x][self._target_point.y] = 0
+            self._map[self._arrow_point.x][self._arrow_point.y] = 1
+
+    def __getitem__(self, i):
+        return self._map[i]
+
+
 def get_monospace_font():
     preferred = ['Consolas', 'DejaVu Sans Mono', 'Monospace', 'Lucida Console', 'Monaco']
     for name in preferred:
@@ -235,8 +290,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.p = tinyproto.Hdlc()
         self.p.begin()
         self.ser = serial.Serial(iface, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
+
         self._health_indicator_left = ColumnIndicator(10, 45)
         self._health_indicator_right = ColumnIndicator(10, 45)
+        self._rsumm = RectangleSumm()
+
+        self.draw_board()
+
+        timer = QTimer(self)
+        timer.setSingleShot(False)
+        timer.timeout.connect(self._tick)
+        timer.start(100)
+
+    def _tick(self):
+        self._rsumm.tick()
         self.draw_board()
 
     def draw_picture(self):
@@ -262,23 +329,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def draw_board(self):
         self.draw_health()
+        self.draw_rsumm()
         self.draw_picture()
         self.write_board_to_uart()
         self.update()
 
     def draw_health(self, color=Qt.white):
         for idx, br in enumerate(self._health_indicator_left.brightnesses()):
-            for x_idx in range(0, int(self.board.WIDTH/2) - 1):
+            for x_idx in range(0, 2):
                 self.board.set(x_idx, idx*2, int(br/100*0xFF))
                 self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
         for idx, br in enumerate(self._health_indicator_right.brightnesses()):
-            for x_idx in range(int(self.board.WIDTH/2) + 1, self.board.WIDTH):
+            for x_idx in range(int(self.board.WIDTH - 2), self.board.WIDTH):
                 self.board.set(x_idx, idx*2, int(br/100*0xFF))
                 self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
 
+    def draw_rsumm(self, color=Qt.white):
+        for idx_x in range(self._rsumm.w):
+            for idx_y in range(self._rsumm.h):
+                br = self._rsumm[idx_x][idx_y] * 100
+                self.board.set(2 + idx_x, 2 + idx_y,  int(br/100*0xFF))
+
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
-        print(str(self.board))
+        #print(str(self.board))
         result = self.p.tx()
         self.ser.write(result)
 
@@ -307,15 +381,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key.Key_Down:
             self._health_indicator_left.fill(self._health_indicator_left.percent() - 2)
+            self._rsumm.move(0, -1)
         elif event.key() == QtCore.Qt.Key.Key_Up:
             self._health_indicator_left.fill(self._health_indicator_left.percent() + 2)
+            self._rsumm.move(0, 1)
         if event.key() == QtCore.Qt.Key.Key_Left:
             self._health_indicator_right.fill(self._health_indicator_right.percent() - 2)
+            self._rsumm.move(-1, 0)
         elif event.key() == QtCore.Qt.Key.Key_Right:
             self._health_indicator_right.fill(self._health_indicator_right.percent() + 2)
+            self._rsumm.move(1, 0)
 
         self.draw_board()
         self.update()
+
 
 
 def main():
@@ -335,7 +414,7 @@ def main():
 
     asyncio.set_event_loop(loop)  # NEW must set the event loop
 
-    if True:
+    if False:
         if args.device == '-':
             while True:
                 # Asking the user to specify which interface to work with
