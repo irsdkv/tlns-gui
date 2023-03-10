@@ -392,6 +392,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.line.append(point)
 
+        if self.hit(point):
+            self.path_rects = []
+            self.clear_all()
+            self.draw_target(point=self.target_pos)
+            self.write_board_to_uart()
+
         self.update()
 
     def mousePressEvent(self, e: QtGui.QMouseEvent) -> None:
