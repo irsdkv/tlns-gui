@@ -329,20 +329,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def draw_board(self):
         self.draw_health()
-        self.draw_rsumm()
+        #self.draw_rsumm()
         self.draw_picture()
         self.write_board_to_uart()
         self.update()
 
     def draw_health(self, color=Qt.white):
         for idx, br in enumerate(self._health_indicator_left.brightnesses()):
-            for x_idx in range(0, 2):
-                self.board.set(x_idx, idx*2, int(br/100*0xFF))
-                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
-        for idx, br in enumerate(self._health_indicator_right.brightnesses()):
-            for x_idx in range(int(self.board.WIDTH - 2), self.board.WIDTH):
-                self.board.set(x_idx, idx*2, int(br/100*0xFF))
-                self.board.set(x_idx, idx*2+1, int(br/100*0xFF))
+            for x_idx in range(0, self.board.WIDTH):
+                self.board.set(x_idx, idx * 2, int(br / 100 * 0xFF))
+                self.board.set(x_idx, idx * 2 + 1, int(br / 100 * 0xFF))
 
     def draw_rsumm(self, color=Qt.white):
         for idx_x in range(self._rsumm.w):
