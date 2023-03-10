@@ -390,7 +390,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_point(point)
         self.draw_path_rect(point)
 
-        self.line.append(point)
+
+        if self.hit(point):
+            self.path_rects = []
+            self.clear_all()
+            self.redraw_line()
+            self.draw_target()
+        else:
+            self.line.append(point)
 
         self.update()
 
