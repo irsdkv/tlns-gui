@@ -145,59 +145,35 @@ def run_setup_window():
 
     return result
 
-def get_x(point_x: int) -> int:
-    assert point_x < Board.WIDTH
-    assert point_x >= 0
-    return int(point_x * WINDOW_MUL_COEF + WINDOW_MUL_COEF/2)
-
-
-def get_y(point_y: int) -> int:
-    assert point_y < Board.HEIGHT
-    assert point_y >= 0
-    return int(point_y * WINDOW_MUL_COEF + WINDOW_MUL_COEF/2)
-
-
-def get_xy(w,h) -> (int, int):
-    return get_x(w), get_y(h)
-
-
-def get_random_target_pos(current_pos_x:int = None, current_pos_y:int = None) -> (int, int):
-    random.seed()
-    w = random.randint(1, Board.WIDTH - 2)
-    h = random.randint(1, Board.HEIGHT - 2)
-
-    if current_pos_x:
-        while current_pos_x == w:
-            w = random.randint(1, Board.WIDTH - 2)
-
-    if current_pos_y:
-        while current_pos_y == h:
-            w = random.randint(1, Board.HEIGHT - 2)
-
-    return get_x(w), get_y(h)
-
-
-def get_random_target_point(point_: Point = None) -> Point:
-    if point_:
-        point = point_
-    else:
-        point = Point(None, None)
-    return Point(*get_random_target_pos(*point))
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, iface, no_path: bool = False, no_target: bool = False):
+    def __init__(self, iface, no_path: bool = False, no_target: bool = False, screen=None):
         super().__init__()
+
+
+        self.showFullScreen()
+
+        self._screen = screen
+        size = screen.size()
+        rect = screen.availableGeometry()
+        self._w, self._h = rect.width(), rect.height()
+
+        min_axis = self._w if self._w < self._h else self._h
+        self._mul_coef = min_axis / Board.WIDTH
+
+        self._mul_coef_x = self._w / Board.WIDTH
+        self._mul_coef_y = self._h / Board.HEIGHT
 
         self.no_path = no_path
         self.no_target = no_target
         self.label = QtWidgets.QLabel()
-        canvas = QtGui.QPixmap(WINDOW_WIDTH, WINDOW_HEIGHT)
+        canvas = QtGui.QPixmap(self._w, self._h)
         self.label.setPixmap(canvas)
         self.setCentralWidget(self.label)
         self.setMouseTracking(True)
         self.centralWidget().setMouseTracking(True)
-        self.target_pos = get_random_target_point()
+        self.target_pos = self.get_random_target_point()
         self.draw_target()
         self.line = []
         self.path_rects = []
@@ -210,6 +186,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.write_board_to_uart()
         self.prev_pos = None
 
+    def get_x(self, point_x: int) -> int:
+        assert point_x < Board.WIDTH
+        assert point_x >= 0
+        return int(point_x * self._mul_coef_x + self._mul_coef_x / 2)
+
+    def get_y(self, point_y: int) -> int:
+        assert point_y < Board.HEIGHT
+        assert point_y >= 0
+        return int(point_y * self._mul_coef_y + self._mul_coef_y / 2)
+
+    def get_xy(self, w, h) -> (int, int):
+        return self.get_x(w), self.get_y(h)
+
+    def get_random_target_pos(self, current_pos_x: int = None, current_pos_y: int = None) -> (int, int):
+        random.seed()
+        w = random.randint(1, Board.WIDTH - 2)
+        h = random.randint(1, Board.HEIGHT - 2)
+
+        if current_pos_x:
+            while current_pos_x == w:
+                w = random.randint(1, Board.WIDTH - 2)
+
+        if current_pos_y:
+            while current_pos_y == h:
+                w = random.randint(1, Board.HEIGHT - 2)
+
+        return self.get_x(w), self.get_y(h)
+
+    def get_random_target_point(self, point_: Point = None) -> Point:
+        if point_:
+            point = point_
+        else:
+            point = Point(None, None)
+        return Point(*self.get_random_target_pos(*point))
+
     def draw_target(self, color=Qt.white, point:Point=None):
         if self.no_target:
             return
@@ -218,18 +229,18 @@ class MainWindow(QtWidgets.QMainWindow):
             point = self.target_pos
         points = list()
         points.append(point)
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y))
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
-        points.append(Point(point.x - WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y - WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x + WINDOW_MUL_COEF, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x, point.y + WINDOW_MUL_COEF))
-        points.append(Point(point.x, point.y - WINDOW_MUL_COEF))
+        points.append(Point(point.x - self._mul_coef_x, point.y))
+        points.append(Point(point.x - self._mul_coef_x, point.y - self._mul_coef_y/2))
+        points.append(Point(point.x - self._mul_coef_x, point.y + self._mul_coef_y/2))
+        points.append(Point(point.x + self._mul_coef_x, point.y - self._mul_coef_y/2))
+        points.append(Point(point.x + self._mul_coef_x, point.y))
+        points.append(Point(point.x + self._mul_coef_x, point.y + self._mul_coef_y/2))
+        points.append(Point(point.x + self._mul_coef_x, point.y + self._mul_coef_y/2))
+        points.append(Point(point.x, point.y + self._mul_coef_y/2))
+        points.append(Point(point.x, point.y - self._mul_coef_y/2))
         painter = QtGui.QPainter(self.label.pixmap())
         pen = QtGui.QPen()
-        pen.setWidth(WINDOW_MUL_COEF)
+        pen.setWidth(self._mul_coef_x)
         pen.setColor(color)
         painter.setPen(pen)
         for point_ in points:
@@ -244,13 +255,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.hit(point):
             return
 
-        rect_pos = Board.get_pos(point, WINDOW_MUL_COEF)
+        rect_pos = Board.get_pos(point, self._mul_coef_x, self._mul_coef_y)
 
         if self.no_path and self.prev_pos:
-            x_prev = int(self.prev_pos.x / WINDOW_MUL_COEF)
-            y_prev = int(self.prev_pos.y / WINDOW_MUL_COEF)
-            x_rect = int(rect_pos.x / WINDOW_MUL_COEF)
-            y_rect = int(rect_pos.y / WINDOW_MUL_COEF)
+            x_prev = int(self.prev_pos.x / self._mul_coef_x)
+            y_prev = int(self.prev_pos.y / self._mul_coef_y)
+            x_rect = int(rect_pos.x / self._mul_coef_x)
+            y_rect = int(rect_pos.y / self._mul_coef_y)
             if x_prev != x_rect or y_prev != y_rect:
                 self.board.unset(x_prev, y_prev)
                 self.board.set(x_rect, y_rect, BRIGHTNESS_ARROW)
@@ -265,7 +276,7 @@ class MainWindow(QtWidgets.QMainWindow):
         painter = QtGui.QPainter(self.label.pixmap())
         painter.setPen(QPen(Qt.magenta, 2, Qt.SolidLine))
         painter.setBrush(QBrush(color, Qt.SolidPattern))
-        painter.drawRect(rect_pos.x, rect_pos.y, WINDOW_MUL_COEF, WINDOW_MUL_COEF)
+        painter.drawRect(rect_pos.x, rect_pos.y, self._mul_coef_x, self._mul_coef_y)
 
         if False and self.path_rects:
             painter.setPen(QPen(color, 2, Qt.SolidLine))
@@ -275,7 +286,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     y = rect_pos.y - 2
                 else:
                     y = self.path_rects[-1].y - 2
-                painter.drawRect(x, y, WINDOW_MUL_COEF-4, 4)
+                painter.drawRect(x, y, self._mul_coef_x-4, 4)
             if self.path_rects[-1].y == rect_pos.y:
                 y = rect_pos.y + 2
                 if rect_pos.x > self.path_rects[-1].x:
@@ -283,7 +294,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     x = self.path_rects[-1].x - 2
                     print("rect_pos.x < self.path_rects[-1].x")
-                painter.drawRect(x, y, 4, WINDOW_MUL_COEF-4)
+                painter.drawRect(x, y, 4, self._mul_coef_x-4)
 
         painter.end()
 
@@ -292,15 +303,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_target()
         if rect_pos not in self.path_rects:
             #for old_rect in self.path_rects:
-            #    self.board.set(int(old_rect.x/WINDOW_MUL_COEF), int(old_rect.y/WINDOW_MUL_COEF), 0)
+            #    self.board.set(int(old_rect.x/self._mul_coef), int(old_rect.y/self._mul_coef), 0)
             if not self.no_path:
-                self.board.set(int(rect_pos.x/WINDOW_MUL_COEF), int(rect_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_ARROW)
+                self.board.set(int(rect_pos.x/self._mul_coef_x), int(rect_pos.y/self._mul_coef_y), BRIGHTNESS_ARROW)
                 self.write_board_to_uart()
             self.path_rects.append(rect_pos)
             self.prev_pos = rect_pos
 
         if not self.no_target:
-            self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), BRIGHTNESS_TARGET)
+            self.board.set(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), BRIGHTNESS_TARGET)
 
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
@@ -315,16 +326,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def hit(self, point:Point, target_pos:Point=None) -> bool:
         compare_pos = target_pos if target_pos else self.target_pos
-        hit_x = (compare_pos.x - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.x < (compare_pos.x + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
-        hit_y = (compare_pos.y - WINDOW_MUL_COEF/2) - WINDOW_MUL_COEF < point.y < (compare_pos.y + WINDOW_MUL_COEF/2) + WINDOW_MUL_COEF
+        hit_x = (compare_pos.x - self._mul_coef_x/2) - self._mul_coef_x < point.x < (compare_pos.x + self._mul_coef_x/2) + self._mul_coef_x
+        hit_y = (compare_pos.y - self._mul_coef_y/2) - self._mul_coef_y < point.y < (compare_pos.y + self._mul_coef_y/2) + self._mul_coef_y
         return hit_x and hit_y
 
     def update_board_target(self, old_pos, new_pos):
         def big_point(point, val):
-            self.board.set(int(point.x / WINDOW_MUL_COEF), int(point.y / WINDOW_MUL_COEF), val)
+            self.board.set(int(point.x / self._mul_coef_x), int(point.y / self._mul_coef_y), val)
 #            return
-            x = int(point.x / WINDOW_MUL_COEF)
-            y = int(point.y / WINDOW_MUL_COEF)
+            x = int(point.x / self._mul_coef_x)
+            y = int(point.y / self._mul_coef_y)
             if y > 0:
                 self.board.set_quietly(x, y - 1, val)
             self.board.set_quietly(x, y + 1, val)
@@ -346,10 +357,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def redraw_target(self, new_tg=True):
         old_pos = copy.copy(self.target_pos)
-        self.board.set(int(self.target_pos.x/WINDOW_MUL_COEF), int(self.target_pos.y/WINDOW_MUL_COEF), 0)
+        self.board.set(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), 0)
         self.draw_target(Qt.black)
         if new_tg:
-            self.target_pos = get_random_target_point(self.target_pos)
+            self.target_pos = self.get_random_target_point(self.target_pos)
         self.draw_target()
         self.update_board_target(old_pos, self.target_pos)
 
@@ -419,6 +430,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.draw_target(point=self.target_pos)
         self.update()
 
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key.Key_Escape:
+            self.showNormal()
+        if event.key() == QtCore.Qt.Key.Key_F11:
+            if self.isMaximized():
+                self.showNormal()
+            else:
+                self.showMaximized()
+
+        self.update()
+
 
 def main():
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@', description='')
@@ -430,6 +452,8 @@ def main():
 
     app = QApplication(sys.argv)
     loop = QEventLoop(app)
+
+    screen = app.primaryScreen()
 
     font = QFont("Courier New", 7)
 
@@ -453,7 +477,7 @@ def main():
         iface = args.device
 
     print("iface: " + iface)
-    window = MainWindow(iface, args.no_path, args.no_target)
+    window = MainWindow(iface, args.no_path, args.no_target, screen=screen)
     window.show()
     app.exec_()
 

@@ -61,11 +61,11 @@ class Board():
         return self.pix[y][x]
 
     @staticmethod
-    def get_pos(point:Point, mul:int=1) -> Point:
-        x = math.floor(point.x / mul)
-        y = math.floor(point.y / mul)
+    def get_pos(point:Point, mul_x=1, mul_y=1) -> Point:
+        x = math.floor(point.x / mul_x)
+        y = math.floor(point.y / mul_y)
 
-        return Point(x*mul, y*mul)
+        return Point(x*mul_x, y*mul_y)
 
     def __str__(self):
         string = ""
