@@ -263,8 +263,8 @@ class MainWindow(QtWidgets.QMainWindow):
             x_rect = int(rect_pos.x / self._mul_coef_x)
             y_rect = int(rect_pos.y / self._mul_coef_y)
             if x_prev != x_rect or y_prev != y_rect:
-                self.board.unset(x_prev, y_prev)
-                self.board.set(x_rect, y_rect, BRIGHTNESS_ARROW)
+                self.board.unset_quietly(x_prev, y_prev)
+                self.board.set_quietly(x_rect, y_rect, BRIGHTNESS_ARROW)
                 self.prev_pos = rect_pos
                 self.write_board_to_uart()
 
@@ -303,15 +303,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_target()
         if rect_pos not in self.path_rects:
             #for old_rect in self.path_rects:
-            #    self.board.set(int(old_rect.x/self._mul_coef), int(old_rect.y/self._mul_coef), 0)
+            #    self.board.set_quietly(int(old_rect.x/self._mul_coef), int(old_rect.y/self._mul_coef), 0)
             if not self.no_path:
-                self.board.set(int(rect_pos.x/self._mul_coef_x), int(rect_pos.y/self._mul_coef_y), BRIGHTNESS_ARROW)
+                self.board.set_quietly(int(rect_pos.x/self._mul_coef_x), int(rect_pos.y/self._mul_coef_y), BRIGHTNESS_ARROW)
                 self.write_board_to_uart()
             self.path_rects.append(rect_pos)
             self.prev_pos = rect_pos
 
         if not self.no_target:
-            self.board.set(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), BRIGHTNESS_TARGET)
+            self.board.set_quietly(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), BRIGHTNESS_TARGET)
 
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
@@ -332,7 +332,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_board_target(self, old_pos, new_pos):
         def big_point(point, val):
-            self.board.set(int(point.x / self._mul_coef_x), int(point.y / self._mul_coef_y), val)
+            self.board.set_quietly(int(point.x / self._mul_coef_x), int(point.y / self._mul_coef_y), val)
 #            return
             x = int(point.x / self._mul_coef_x)
             y = int(point.y / self._mul_coef_y)
@@ -357,7 +357,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def redraw_target(self, new_tg=True):
         old_pos = copy.copy(self.target_pos)
-        self.board.set(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), 0)
+        self.board.set_quietly(int(self.target_pos.x/self._mul_coef_x), int(self.target_pos.y/self._mul_coef_y), 0)
         self.draw_target(Qt.black)
         if new_tg:
             self.target_pos = self.get_random_target_point(self.target_pos)

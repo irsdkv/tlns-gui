@@ -50,6 +50,9 @@ class Board():
     def unset(self,  x, y):
         self.set(x, y, 0)
 
+    def unset_quietly(self,  x, y):
+        self.set_quietly(x, y, 0)
+
     def get(self, x, y):
         assert x < self.w
         assert y < self.h
