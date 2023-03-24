@@ -146,7 +146,6 @@ def run_setup_window():
     return result
 
 
-
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, iface, no_path: bool = False, no_target: bool = False, screen=None):
         super().__init__()
