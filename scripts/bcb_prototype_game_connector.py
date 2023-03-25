@@ -327,7 +327,7 @@ class MainWindow(QtWidgets.QMainWindow):
         timer = QTimer(self)
         timer.setSingleShot(False)
         timer.timeout.connect(self.write_board_to_uart)
-        timer.start(0.100)
+        timer.start(800)
 
     def draw_picture(self):
         painter = QtGui.QPainter(self.label.pixmap())
@@ -362,8 +362,21 @@ class MainWindow(QtWidgets.QMainWindow):
     def draw_enemies(self):
         for _ in range(2):
             for enemy in self._enemies:
-                self.board.set_quietly(*enemy.xy_get_stored, 0)
-                self.board.set_quietly(*enemy.xy_get_and_store, 0xFF)
+                x_old, y_old = enemy.xy_get_stored
+                x_new, y_new = enemy.xy_get_and_store
+                xy_old = []
+                xy_new = []
+                for idx in range(4):
+                    xy_old.append((x_old, y_old))
+                    xy_old.append((x_old, y_old-1))
+                    xy_old.append((x_old+1, y_old-1))
+                    xy_old.append((x_old+1, y_old))
+                    xy_new.append((x_new, y_new))
+                    xy_new.append((x_new, y_new-1))
+                    xy_new.append((x_new+1, y_new-1))
+                    xy_new.append((x_new+1, y_new))
+                    self.board.set_quietly(*xy_old[idx], 0)
+                    self.board.set_quietly(*xy_new[idx], 0xFF)
 
     def draw_health(self, color=Qt.white):
         for idx, br in enumerate(self._health_indicator_left.brightnesses()):
@@ -378,8 +391,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def draw_health_up_mirrored(self, color=Qt.white):
         for idx, br in enumerate(self._health_indicator_central_up.brightnesses()):
             for x_idx in range(0, int(self.board.WIDTH/2) - 1):
-                self.board.set(int(self.board.WIDTH/2) - idx, self.board.HEIGHT - 1, int(br/100*0xFF))
-                self.board.set(int(self.board.WIDTH/2) + idx, self.board.HEIGHT - 1, int(br/100*0xFF))
+                self.board.set(int(self.board.WIDTH/2) - idx, 0, int(br/100*0xFF))
+                self.board.set(int(self.board.WIDTH/2) + idx, 0, int(br/100*0xFF))
+                self.board.set(int(self.board.WIDTH/2) - idx, 1, int(br/100*0xFF))
+                self.board.set(int(self.board.WIDTH/2) + idx, 1, int(br/100*0xFF))
 
     def write_board_to_uart(self):
         self.p.put(self.board.__bytes__())
