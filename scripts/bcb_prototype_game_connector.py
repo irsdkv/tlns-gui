@@ -324,6 +324,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self._enemies.append(EnemyPointPolar((math.pi/4*(idx - 1)), shift_x=10, shift_y=15))
         self.draw_board()
 
+        timer = QTimer(self)
+        timer.setSingleShot(False)
+        timer.timeout.connect(self.write_board_to_uart)
+        timer.start(0.050)
+
     def draw_picture(self):
         painter = QtGui.QPainter(self.label.pixmap())
         for y_idx in range(self.board.HEIGHT):
@@ -352,7 +357,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_enemies()
         self.draw_picture()
         time.sleep(0.030)
-        self.write_board_to_uart()
+        #self.write_board_to_uart()
         self.update()
 
     def draw_enemies(self):
@@ -388,7 +393,7 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.setBrush(QBrush(Qt.black, Qt.SolidPattern))
         painter.drawRect(0, 0, self.label.pixmap().width(), self.label.pixmap().height())
         self.board = Board()
-        self.write_board_to_uart()
+        #self.write_board_to_uart()
 
     def mousePressEvent(self, e: QtGui.QMouseEvent) -> None:
         if e.buttons() == QtCore.Qt.LeftButton:
