@@ -229,7 +229,6 @@ def run_setup_window():
             result = result_key
         dialog.close()
 
-
     ok_button = QPushButton("Connect")
     ok_button.clicked.connect(on_ok)
 
@@ -277,6 +276,7 @@ def run_setup_window():
         dialog.exec()
 
     return result
+
 
 def get_x(point_x: int) -> int:
     assert point_x < Board.WIDTH

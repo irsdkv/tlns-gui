@@ -405,6 +405,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.hit(point):
             self.clear_all()
             self.redraw_target(False)
+            self.write_board_to_uart()
+            self.update()
+            return
         else:
             self.line.append(point)
 
