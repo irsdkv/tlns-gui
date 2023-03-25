@@ -345,9 +345,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def draw_board(self):
         #self.draw_health()
+        self.clear_all()
         self.draw_health_up_mirrored()
         self.draw_enemies()
         self.draw_picture()
+        time.sleep(0.030)
         self.write_board_to_uart()
         self.update()
 
@@ -385,13 +387,6 @@ class MainWindow(QtWidgets.QMainWindow):
         painter.drawRect(0, 0, self.label.pixmap().width(), self.label.pixmap().height())
         self.board = Board()
         self.write_board_to_uart()
-
-    def mouseMoveEvent(self, e):
-        point = Point(e.x(), e.y())
-
-        self.line.append(point)
-
-        self.update()
 
     def mousePressEvent(self, e: QtGui.QMouseEvent) -> None:
         if e.buttons() == QtCore.Qt.LeftButton:
