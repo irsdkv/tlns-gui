@@ -327,7 +327,7 @@ class MainWindow(QtWidgets.QMainWindow):
         timer = QTimer(self)
         timer.setSingleShot(False)
         timer.timeout.connect(self.write_board_to_uart)
-        timer.start(0.050)
+        timer.start(0.100)
 
     def draw_picture(self):
         painter = QtGui.QPainter(self.label.pixmap())
@@ -356,7 +356,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.draw_health_up_mirrored()
         self.draw_enemies()
         self.draw_picture()
-        time.sleep(0.030)
         #self.write_board_to_uart()
         self.update()
 
