@@ -429,7 +429,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.redraw_path()
         elif e.buttons() == QtCore.Qt.RightButton:
             self.clear_all()
-            self.draw_target(point=self.target_pos)
+            self.redraw_target(False)
+            self.write_board_to_uart()
         self.update()
 
     def keyPressEvent(self, event):
