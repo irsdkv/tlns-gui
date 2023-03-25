@@ -298,6 +298,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, iface, no_path: bool = False, no_target: bool = False):
         super().__init__()
 
+
         self.no_path = no_path
         self.no_target = no_target
         self.label = QtWidgets.QLabel()
@@ -313,6 +314,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.p = tinyproto.Hdlc()
         self.p.begin()
         self.ser = serial.Serial(iface, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=None)
+        self.ser.flush()
         self._health_indicator_left = ColumnIndicator(10, 45)
         self._health_indicator_right = ColumnIndicator(10, 45)
         self._health_indicator_central_up = ColumnIndicator(10, 45)
